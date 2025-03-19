@@ -4,6 +4,7 @@ import random
 import shutil
 import time
 import warnings
+import signal
 from enum import Enum
 
 import torch
@@ -84,43 +85,56 @@ best_acc1 = 0
 def main():
     args = parser.parse_args()
 
-    if args.seed is not None:
-        random.seed(args.seed)
-        torch.manual_seed(args.seed)
-        cudnn.deterministic = True
-        cudnn.benchmark = False
-        warnings.warn('You have chosen to seed training. '
-                      'This will turn on the CUDNN deterministic setting, '
-                      'which can slow down your training considerably! '
-                      'You may see unexpected behavior when restarting '
-                      'from checkpoints.')
+    timeout = 300 # sec
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout)
 
-    if args.gpu is not None:
-        warnings.warn('You have chosen a specific GPU. This will completely '
-                      'disable data parallelism.')
+    try:
+        if args.seed is not None:
+            random.seed(args.seed)
+            torch.manual_seed(args.seed)
+            cudnn.deterministic = True
+            cudnn.benchmark = False
+            warnings.warn('You have chosen to seed training. '
+                        'This will turn on the CUDNN deterministic setting, '
+                        'which can slow down your training considerably! '
+                        'You may see unexpected behavior when restarting '
+                        'from checkpoints.')
 
-    if args.dist_url == "env://" and args.world_size == -1:
-        args.world_size = int(os.environ["WORLD_SIZE"])
+        if args.gpu is not None:
+            warnings.warn('You have chosen a specific GPU. This will completely '
+                        'disable data parallelism.')
 
-    args.distributed = args.world_size > 1 or args.multiprocessing_distributed
+        if args.dist_url == "env://" and args.world_size == -1:
+            args.world_size = int(os.environ["WORLD_SIZE"])
 
-    if torch.cuda.is_available():
-        ngpus_per_node = torch.cuda.device_count()
-        if ngpus_per_node == 1 and args.dist_backend == "nccl":
-            warnings.warn("nccl backend >=2.5 requires GPU count>1, see https://github.com/NVIDIA/nccl/issues/103 perhaps use 'gloo'")
-    else:
-        ngpus_per_node = 1
+        args.distributed = args.world_size > 1 or args.multiprocessing_distributed
 
-    if args.multiprocessing_distributed:
-        # Since we have ngpus_per_node processes per node, the total world_size
-        # needs to be adjusted accordingly
-        args.world_size = ngpus_per_node * args.world_size
-        # Use torch.multiprocessing.spawn to launch distributed processes: the
-        # main_worker process function
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
-    else:
-        # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+        if torch.cuda.is_available():
+            ngpus_per_node = torch.cuda.device_count()
+            if ngpus_per_node == 1 and args.dist_backend == "nccl":
+                warnings.warn("nccl backend >=2.5 requires GPU count>1, see https://github.com/NVIDIA/nccl/issues/103 perhaps use 'gloo'")
+        else:
+            ngpus_per_node = 1
+
+        if args.multiprocessing_distributed:
+            # Since we have ngpus_per_node processes per node, the total world_size
+            # needs to be adjusted accordingly
+            args.world_size = ngpus_per_node * args.world_size
+            # Use torch.multiprocessing.spawn to launch distributed processes: the
+            # main_worker process function
+            mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+        else:
+            # Simply call main_worker function
+            main_worker(args.gpu, ngpus_per_node, args)
+    except TimeoutError as e:
+        print("Training terminated due to timeout")
+    finally:
+        signal.alarm(0)
+
+
+def timeout_handler(signum, frame):
+    raise TimeoutError()
 
 
 def main_worker(gpu, ngpus_per_node, args):
