@@ -85,7 +85,7 @@ best_acc1 = 0
 def main():
     args = parser.parse_args()
 
-    timeout = 300 # sec
+    timeout = 300
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(timeout)
 
