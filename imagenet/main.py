@@ -78,14 +78,19 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
 parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
+parser.add_argument('-t','--timeout', default=300, type=int, metavar='N',
+                    help='timeout for training in seconds (default: 300)')
 
 best_acc1 = 0
 
 
-def main():
-    args = parser.parse_args()
+def main(args=None):
+    if args is None:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(args)
 
-    timeout = 300
+    timeout = args.timeout
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(timeout)
 
@@ -127,8 +132,8 @@ def main():
         else:
             # Simply call main_worker function
             main_worker(args.gpu, ngpus_per_node, args)
-    except TimeoutError as e:
-        print("Training terminated due to timeout")
+    except TimeoutError:
+        print(f"Training terminated due to timeout of {args.timeout}s")
     finally:
         signal.alarm(0)
 
