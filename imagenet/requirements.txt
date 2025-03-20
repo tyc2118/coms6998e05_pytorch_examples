@@ -1,2 +1,4 @@
 torch
 torchvision==0.20.0
+# extra dependencies for performance analysis
+torchsummary

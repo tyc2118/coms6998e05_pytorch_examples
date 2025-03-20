@@ -21,6 +21,7 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
+from torchsummary import summary
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -165,6 +166,8 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         print("=> creating model '{}'".format(args.arch))
         model = models.__dict__[args.arch]()
+
+    summary(model,(3,224,224))
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         print('using CPU, this will be slow')
