@@ -134,7 +134,8 @@ def main(args=None):
             # Simply call main_worker function
             main_worker(args.gpu, ngpus_per_node, args)
     except TimeoutError:
-        print(f"Training terminated due to timeout of {args.timeout}s")
+        current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        print(f"Training terminated at {current_time} due to timeout of {args.timeout}s")
     finally:
         signal.alarm(0)
 
